@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Controle Financeiro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Controle Financeiro</h1>
+        
+        <div class="form-group">
+            <input type="number" id="valor" placeholder="Valor (ex: 1000)">
+            <select id="categoria">
+                <option value="academia">Academia</option>
+                <option value="alimentacao">Alimentação</option>
+                <option value="moradia">Moradia</option>
+                <option value="salario">Salário</option>
+                <option value="restaurante">Restaurante</option>
+            </select>
+            <button onclick="adicionarTransacao()">Adicionar</button>
+        </div>
+
+        <div id="transacoes"></div>
+    </div>
+
+    <script>
+        async function adicionarTransacao() {
+            const valor = document.getElementById("valor").value;
+            const categoria = document.getElementById("categoria").value;
+
+            const response = await fetch("/transactions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ valor, categoria })
+            });
+
+            if (response.ok) {
+                alert("Transação adicionada!");
+                carregarTransacoes();
+            }
+        }
+
+        async function carregarTransacoes() {
+            const response = await fetch("/transactions");
+            const transacoes = await response.json();
+            
+            const div = document.getElementById("transacoes");
+            div.innerHTML = "<h2>Últimas Transações</h2>";
+            
+            transacoes.forEach(t => {
+                div.innerHTML += `
+                    <p>${t.categoria}: R$${t.valor} (${t.data})</p>
+                `;
+            });
+        }
+
+        // Carrega as transações ao abrir a página
+        carregarTransacoes();
+    </script>
+</body>
+</html>
