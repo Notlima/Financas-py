@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from database import db, init_app
 from models import Transaction
 from datetime import datetime
@@ -9,6 +9,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///transactions.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 init_app(app)
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+  return send_from_directory('static', filename)
 
 @app.route("/")
 def index():
