@@ -1,11 +1,13 @@
 body {
   font-family: Arial, sans-serif;
-  margin: 200px;
+  margin: 20px;
 }
 
 .container {
   max-width: 600px;
   margin: 0 auto;
+  padding: 35px;
+  
   background: #ccc;
 }
 
@@ -26,4 +28,59 @@ button {
   margin-top: 20px;
   border-top: 1px solid #ccc;
   padding-top: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.currency-toggle {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.negative-value {
+  color: #f44336;
+}
+
+.positive-value {
+  color: #4CAF50;
+}
+
+.transacao {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.negative-value::before {
+  margin-right: 2px;
+}
+
+.transacao {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.transacao span {
+  text-align: left;
+}
+
+.transacao span:nth-child(2) {
+  text-align: right;
+}
+
+.transacao span:nth-child(3) {
+  text-align: center;
 }

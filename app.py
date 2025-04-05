@@ -23,6 +23,7 @@ def add_transaction():
   data = request.json
   valor = float(data["valor"])
   categoria = data["categoria"]
+  print(f"Recebido - Valor: {valor}, Categoria: {categoria}")
 
   #Saláro é possitivo, despesas negativas
   valor_final = valor if categoria == "salario" else -valor
@@ -31,7 +32,12 @@ def add_transaction():
   db.session.add(nova_transacao)
   db.session.commit()
 
-  return jsonify({"status": "success", "transacao": nova_transacao.to_dict()})
+  print(f"Salvo no BD - Valor: {nova_transacao.valor}")
+
+  return jsonify({
+    "status": "success", 
+    "transacao": nova_transacao.to_dict()
+    })
 
 @app.route("/transactions", methods=["GET"])
 def get_transaction():

@@ -6,6 +6,10 @@
 </head>
 <body>
     <div class="container">
+      <div class="header">
+        <h1>Controle Financeiro</h1>
+        <button class="currency-toggle" onclick="toggleCurrency()">€ → R$</button>
+      </div>
         <h1>Controle Financeiro</h1>
         
         <div class="form-group">
@@ -16,6 +20,7 @@
                 <option value="moradia">Moradia</option>
                 <option value="salario">Salário</option>
                 <option value="restaurante">Restaurante</option>
+                <option value="transporte">Transporte</option>
             </select>
             <button onclick="adicionarTransacao()">Adicionar</button>
         </div>
@@ -25,34 +30,104 @@
 
     <script>
         async function adicionarTransacao() {
-            const valor = document.getElementById("valor").value;
-            const categoria = document.getElementById("categoria").value;
+          const valorInput = document.getElementById("valor");
+          const categoria = document.getElementById("categoria").value;
 
+          // Validação básica
+          if (!valorInput.value) {
+              alert("Por favor, insira um valor!");
+              return;
+          }
+
+          const valor = parseFloat(valorInput.value);
+          
+          try {
             const response = await fetch("/transactions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ valor, categoria })
+                body: JSON.stringify({ 
+                    valor: valor,  // Envia o valor bruto (a conversão para negativo deve ser no backend)
+                    categoria: categoria
+                })
             });
 
+            const data = await response.json();
+        
+            // DEBUG - Verifique toda a resposta
+            console.log("Resposta completa:", data);
+        
             if (response.ok) {
-                alert("Transação adicionada!");
+                // DEBUG - Verifique especificamente o valor retornado
+                console.log("Valor retornado:", data.transacao.valor);
+                
+                valorInput.value = "";
                 carregarTransacoes();
+            } else {
+                console.error("Erro na resposta:", data);
+            }
+            } catch (error) {
+              console.error("Erro na requisição:", error);
             }
         }
 
+        let currentCurrency = '€';
+
+        function formatValue(value) {
+          const numericValue = parseFloat(value);
+          if (isNaN(numericValue)) return `${currentCurrency}0.00`;
+          
+          const absoluteValue = Math.abs(numericValue);
+          const formattedValue = `${currentCurrency}${absoluteValue.toFixed(2)}`;
+          
+          return numericValue < 0 ? `-${formattedValue}` : formattedValue;
+        }
+
+        function toggleCurrency() {
+            currentCurrency = currentCurrency === '€' ? 'R$' : '€';
+            document.querySelector('.currency-toggle').textContent = `${currentCurrency} → ${currentCurrency === '€' ? 'R$' : '€'}`;
+            carregarTransacoes();
+        }
+
         async function carregarTransacoes() {
+          try {
             const response = await fetch("/transactions");
-            const transacoes = await response.json();
+            if (!response.ok) throw new Error("Erro ao carregar transações");
             
+            const transacoes = await response.json();
             const div = document.getElementById("transacoes");
             div.innerHTML = "<h2>Últimas Transações</h2>";
             
-            transacoes.forEach(t => {
-                div.innerHTML += `
-                    <p>${t.categoria}: R$${t.valor} (${t.data})</p>
-                `;
+            transacoes.forEach(transacao => {
+            // Garante que o valor é numérico
+            const valorNumerico = typeof transacao.valor === 'string' ? 
+                parseFloat(transacao.valor) : 
+                transacao.valor;
+            
+            const formatarCategoria = {
+              'academia': 'Academia',
+              'alimentacao': 'Alimentação',
+              'moradia': 'Moradia',
+              'salario': 'Salário',
+              'restaurante': 'Restaurante',
+              'transporte': 'Transporte'
+            };    
+
+            const valueClass = valorNumerico < 0 ? 'negative-value' : 'positive-value';
+            
+            div.innerHTML += `
+                <div class="transacao">
+                    <span>${formatarCategoria[transacao.categoria] || transacao.categoria}</span>
+                    <span class="${valueClass}">${formatValue(valorNumerico)}</span>
+                    <span>${new Date(transacao.data).toLocaleDateString()}</span>
+                </div>
+              `;
             });
+          } catch (error) {
+            console.error("Erro:", error);
+            alert("Ocorreu um erro ao carregar as transações");
+          }
         }
+        
 
         // Carrega as transações ao abrir a página
         carregarTransacoes();

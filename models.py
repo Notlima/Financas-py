@@ -9,7 +9,7 @@ class Transaction(db.Model):
   def to_dict(self):
     return {
     "id": self.id,
-    "valor": self.valor,
+    "valor": float(self.valor),
     "categoria": self.categoria,
     "data": self.data.isoformat()
     }
