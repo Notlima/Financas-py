@@ -46,7 +46,7 @@ button {
   cursor: pointer;
 }
 
-.negative-value {
+.negative-value, .negative {
   color: #f44336;
 }
 
@@ -83,4 +83,46 @@ button {
 
 .transacao span:nth-child(3) {
   text-align: center;
+}
+
+#data {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.resumo-mensal {
+  display: flex;
+  gap: 20px;
+  margin: 20px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.resumo-mensal div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#saldo {
+  color: #2e7d32; /* Verde para saldo positivo */
+}
+
+#saldo.negative {
+  color: #f44336; /* Vermelho para saldo negativo */
+}
+
+.feedback-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  z-index: 1000;
 }

@@ -10,8 +10,6 @@
         <h1>Controle Financeiro</h1>
         <button class="currency-toggle" onclick="toggleCurrency()">€ → R$</button>
       </div>
-        <h1>Controle Financeiro</h1>
-        
         <div class="form-group">
             <input type="number" id="valor" placeholder="Valor (ex: 1000)">
             <select id="categoria">
@@ -22,115 +20,184 @@
                 <option value="restaurante">Restaurante</option>
                 <option value="transporte">Transporte</option>
             </select>
-            <button onclick="adicionarTransacao()">Adicionar</button>
+            <input type="date" id="data" value="{{ data_atual }}">
+            <button onclick="addTransaction()">Adicionar</button>
+        </div>
+
+        <div class="resumo-mensal">
+          <div class="mes-atual">
+              <span>Mês: </span>
+              <strong id="currentMonth">{{ currentMonth }}</strong>
+          </div>
+          <div class="total-entradas">
+              <span>Entradas: </span>
+              <strong id="total-entradas" class="positive-value">+€0.00</strong>
+          </div>
+          <div class="total-saidas">
+              <span>Saídas: </span>
+              <strong id="total-saidas" class="negative-value">-€0.00</strong>
+          </div>
+          <div class="saldo">
+              <span>Saldo: </span>
+              <strong id="saldo">€0.00</strong>
+          </div>
         </div>
 
         <div id="transacoes"></div>
     </div>
 
     <script>
-        async function adicionarTransacao() {
-          const valorInput = document.getElementById("valor");
-          const categoria = document.getElementById("categoria").value;
+      document.getElementById("data").value = new Date().toISOString().split('T')[0];
 
-          // Validação básica
-          if (!valorInput.value) {
-              alert("Por favor, insira um valor!");
-              return;
+      async function addTransaction() {
+        const valorInput = document.getElementById("valor");
+        const categoria = document.getElementById("categoria").value;
+        const dataInput = document.getElementById("data").value;
+        // Validação básica
+        if (!valorInput.value) {
+            alert("Por favor, insira um valor!");
+            return;
+        }
+
+        const valor = parseFloat(valorInput.value);
+          
+        try {
+          const response = await fetch("/transactions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                valor: valor,  // Envia o valor bruto (a conversão para negativo deve ser no backend)
+                categoria: categoria,
+                data: dataInput
+            })
+          });
+
+          const data = await response.json();
+        
+          if (response.ok) {
+            valorInput.value = "";
+            document.getElementById("data").value = new Date().toISOString().split("T")[0];
+
+            const feedback = document.createElement('div');
+            feedback.textContent = 'Transação adicionada com sucesso!';
+            feedback.className = 'feedback-message';
+            document.body.appendChild(feedback);
+            
+            setTimeout(() => feedback.remove(), 2000);
+
+            await loadTransactions();
+            await attTotals();
+          } else {
+            console.error("Erro na resposta:", data);
           }
+        } catch (error) {
+          console.error("Erro na requisição:", error);
+        }
+      }
 
-          const valor = parseFloat(valorInput.value);
-          
-          try {
-            const response = await fetch("/transactions", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    valor: valor,  // Envia o valor bruto (a conversão para negativo deve ser no backend)
-                    categoria: categoria
-                })
-            });
+      let currentCurrency = '€';
 
-            const data = await response.json();
+      function formatValue(value) {
+        const numericValue = parseFloat(value);
+        if (isNaN(numericValue)) return `${currentCurrency}0.00`;
         
-            // DEBUG - Verifique toda a resposta
-            console.log("Resposta completa:", data);
+        const absoluteValue = Math.abs(numericValue);
+        const formattedValue = `${currentCurrency}${absoluteValue.toFixed(2)}`;
         
-            if (response.ok) {
-                // DEBUG - Verifique especificamente o valor retornado
-                console.log("Valor retornado:", data.transacao.valor);
-                
-                valorInput.value = "";
-                carregarTransacoes();
-            } else {
-                console.error("Erro na resposta:", data);
-            }
-            } catch (error) {
-              console.error("Erro na requisição:", error);
-            }
-        }
+        return numericValue < 0 ? `- ${formattedValue}` : formattedValue;
+      }
 
-        let currentCurrency = '€';
+      function toggleCurrency() {
+        currentCurrency = currentCurrency === '€' ? 'R$' : '€';
+        document.querySelector('.currency-toggle').textContent = `${currentCurrency} → ${currentCurrency === '€' ? 'R$' : '€'}`;
+        loadTransactions();
+      }
 
-        function formatValue(value) {
-          const numericValue = parseFloat(value);
-          if (isNaN(numericValue)) return `${currentCurrency}0.00`;
+      async function loadTransactions() {
+        try {
+          const response = await fetch("/transactions");
+          if (!response.ok) throw new Error("Erro ao carregar transações");
           
-          const absoluteValue = Math.abs(numericValue);
-          const formattedValue = `${currentCurrency}${absoluteValue.toFixed(2)}`;
+          const transactions = await response.json();
+          const div = document.getElementById("transacoes");
+          div.innerHTML = "<h2>Últimas Transações</h2>";
           
-          return numericValue < 0 ? `-${formattedValue}` : formattedValue;
+          transactions.forEach(transacao => {
+          // Garante que o valor é numérico
+          const valorNumerico = typeof transacao.valor === 'string' ? 
+            parseFloat(transacao.valor) : 
+            transacao.valor;
+          
+          const formatarCategoria = {
+            'academia': 'Academia',
+            'alimentacao': 'Alimentação',
+            'moradia': 'Moradia',
+            'salario': 'Salário',
+            'restaurante': 'Restaurante',
+            'transporte': 'Transporte'
+          };    
+
+          const valueClass = valorNumerico < 0 ? 'negative-value' : 'positive-value';
+          
+          div.innerHTML += `
+            <div class="transacao">
+              <span>${formatarCategoria[transacao.categoria] || transacao.categoria}</span>
+              <span class="${valueClass}">${formatValue(valorNumerico)}</span>
+              <span>${new Date(transacao.data).toLocaleDateString()}</span>
+            </div>
+            `;
+          });
+        } catch (error) {
+          console.error("Erro:", error);
+          alert("Ocorreu um erro ao carregar as transações");
+        } finally{
+          await attTotals();
         }
+      }
+      
+      function attCurrentMonth() {
+        const months = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+        const today = new Date();
+        document.getElementById("currentMonth").textContent = `${months[today.getMonth()]} ${today.getFullYear()}`;
+      }
 
-        function toggleCurrency() {
-            currentCurrency = currentCurrency === '€' ? 'R$' : '€';
-            document.querySelector('.currency-toggle').textContent = `${currentCurrency} → ${currentCurrency === '€' ? 'R$' : '€'}`;
-            carregarTransacoes();
-        }
+      async function attTotals() {
+        try {
+          const response = await fetch("/transactions/summary");
+          if (!response.ok) throw new Error("Erro ao carregar resumo");
+          
+          const balance = await response.json();
+          
+          document.getElementById("total-entradas").textContent = `${currentCurrency}${balance.entradas.toFixed(2)}`;
+          document.getElementById("total-saidas").textContent = `- ${currentCurrency}${balance.saidas.toFixed(2)}`;
 
-        async function carregarTransacoes() {
-          try {
-            const response = await fetch("/transactions");
-            if (!response.ok) throw new Error("Erro ao carregar transações");
-            
-            const transacoes = await response.json();
-            const div = document.getElementById("transacoes");
-            div.innerHTML = "<h2>Últimas Transações</h2>";
-            
-            transacoes.forEach(transacao => {
-            // Garante que o valor é numérico
-            const valorNumerico = typeof transacao.valor === 'string' ? 
-                parseFloat(transacao.valor) : 
-                transacao.valor;
-            
-            const formatarCategoria = {
-              'academia': 'Academia',
-              'alimentacao': 'Alimentação',
-              'moradia': 'Moradia',
-              'salario': 'Salário',
-              'restaurante': 'Restaurante',
-              'transporte': 'Transporte'
-            };    
+          const balanceElement = document.getElementById("saldo");
+          balanceElement.classList.toggle("negative", balance.saldo < 0);
 
-            const valueClass = valorNumerico < 0 ? 'negative-value' : 'positive-value';
-            
-            div.innerHTML += `
-                <div class="transacao">
-                    <span>${formatarCategoria[transacao.categoria] || transacao.categoria}</span>
-                    <span class="${valueClass}">${formatValue(valorNumerico)}</span>
-                    <span>${new Date(transacao.data).toLocaleDateString()}</span>
-                </div>
-              `;
-            });
-          } catch (error) {
-            console.error("Erro:", error);
-            alert("Ocorreu um erro ao carregar as transações");
-          }
+          const formattedBalance = balance.saldo < 0 
+            ? `- ${currentCurrency}${Math.abs(balance.saldo).toFixed(2)}`
+            : `${currentCurrency}${balance.saldo.toFixed(2)}`;
+
+          document.getElementById("saldo").textContent = formattedBalance;
+
+
+        } catch (error) {
+          console.error("Erro ao atualizar totais:", error);
         }
         
 
-        // Carrega as transações ao abrir a página
-        carregarTransacoes();
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        attCurrentMonth();
+        attTotals();
+      });
+
+      // Carrega as transações ao abrir a página
+      loadTransactions();
     </script>
 </body>
 </html>
