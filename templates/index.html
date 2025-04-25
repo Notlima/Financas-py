@@ -2,13 +2,14 @@
 <html>
 <head>
     <title>Controle Financeiro</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
 <body>
     <div class="container">
       <div class="header">
         <h1>Controle Financeiro</h1>
-        <button class="currency-toggle" onclick="toggleCurrency()">€ → R$</button>
+        <button class="currency-toggle">€ → R$</button>
       </div>
         <div class="form-group">
             <input type="number" id="valor" placeholder="Valor (ex: 1000)">
@@ -21,7 +22,7 @@
                 <option value="transporte">Transporte</option>
             </select>
             <input type="date" id="data" value="{{ data_atual }}">
-            <button onclick="addTransaction()">Adicionar</button>
+            <button id="btn-adicionar">Adicionar</button>
         </div>
 
         <div class="resumo-mensal">
@@ -43,161 +44,34 @@
           </div>
         </div>
 
+        <div class="filtros">
+          <h3>Filtrar Transações</h3>
+          <select id="filtro-categoria">
+              <option value="todas">Todas Categorias</option>
+              <option value="academia">Academia</option>
+              <option value="alimentacao">Alimentação</option>
+              <!-- outras categorias -->
+          </select>
+          <select id="filtro-periodo">
+              <option value="este-mes">Este Mês</option>
+              <option value="mes-passado">Mês Passado</option>
+              <option value="este-ano">Este Ano</option>
+              <option value="personalizado">Personalizado</option>
+          </select>
+          <div id="custom-range" style="display:none;">
+              <input type="date" id="data-inicio">
+              <input type="date" id="data-fim">
+          </div>
+          <button onclick="aplicarFiltros()">Aplicar</button>
+        </div>
+
+        <div class="graficos">
+          <canvas id="grafico-categorias"></canvas>
+          <canvas id="grafico-evolucao"></canvas>
+        </div>
+
         <div id="transacoes"></div>
     </div>
 
-    <script>
-      document.getElementById("data").value = new Date().toISOString().split('T')[0];
-
-      async function addTransaction() {
-        const valorInput = document.getElementById("valor");
-        const categoria = document.getElementById("categoria").value;
-        const dataInput = document.getElementById("data").value;
-        // Validação básica
-        if (!valorInput.value) {
-            alert("Por favor, insira um valor!");
-            return;
-        }
-
-        const valor = parseFloat(valorInput.value);
-          
-        try {
-          const response = await fetch("/transactions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                valor: valor,  // Envia o valor bruto (a conversão para negativo deve ser no backend)
-                categoria: categoria,
-                data: dataInput
-            })
-          });
-
-          const data = await response.json();
-        
-          if (response.ok) {
-            valorInput.value = "";
-            document.getElementById("data").value = new Date().toISOString().split("T")[0];
-
-            const feedback = document.createElement('div');
-            feedback.textContent = 'Transação adicionada com sucesso!';
-            feedback.className = 'feedback-message';
-            document.body.appendChild(feedback);
-            
-            setTimeout(() => feedback.remove(), 2000);
-
-            await loadTransactions();
-            await attTotals();
-          } else {
-            console.error("Erro na resposta:", data);
-          }
-        } catch (error) {
-          console.error("Erro na requisição:", error);
-        }
-      }
-
-      let currentCurrency = '€';
-
-      function formatValue(value) {
-        const numericValue = parseFloat(value);
-        if (isNaN(numericValue)) return `${currentCurrency}0.00`;
-        
-        const absoluteValue = Math.abs(numericValue);
-        const formattedValue = `${currentCurrency}${absoluteValue.toFixed(2)}`;
-        
-        return numericValue < 0 ? `- ${formattedValue}` : formattedValue;
-      }
-
-      function toggleCurrency() {
-        currentCurrency = currentCurrency === '€' ? 'R$' : '€';
-        document.querySelector('.currency-toggle').textContent = `${currentCurrency} → ${currentCurrency === '€' ? 'R$' : '€'}`;
-        loadTransactions();
-      }
-
-      async function loadTransactions() {
-        try {
-          const response = await fetch("/transactions");
-          if (!response.ok) throw new Error("Erro ao carregar transações");
-          
-          const transactions = await response.json();
-          const div = document.getElementById("transacoes");
-          div.innerHTML = "<h2>Últimas Transações</h2>";
-          
-          transactions.forEach(transacao => {
-          // Garante que o valor é numérico
-          const valorNumerico = typeof transacao.valor === 'string' ? 
-            parseFloat(transacao.valor) : 
-            transacao.valor;
-          
-          const formatarCategoria = {
-            'academia': 'Academia',
-            'alimentacao': 'Alimentação',
-            'moradia': 'Moradia',
-            'salario': 'Salário',
-            'restaurante': 'Restaurante',
-            'transporte': 'Transporte'
-          };    
-
-          const valueClass = valorNumerico < 0 ? 'negative-value' : 'positive-value';
-          
-          div.innerHTML += `
-            <div class="transacao">
-              <span>${formatarCategoria[transacao.categoria] || transacao.categoria}</span>
-              <span class="${valueClass}">${formatValue(valorNumerico)}</span>
-              <span>${new Date(transacao.data).toLocaleDateString()}</span>
-            </div>
-            `;
-          });
-        } catch (error) {
-          console.error("Erro:", error);
-          alert("Ocorreu um erro ao carregar as transações");
-        } finally{
-          await attTotals();
-        }
-      }
-      
-      function attCurrentMonth() {
-        const months = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-        ];
-        const today = new Date();
-        document.getElementById("currentMonth").textContent = `${months[today.getMonth()]} ${today.getFullYear()}`;
-      }
-
-      async function attTotals() {
-        try {
-          const response = await fetch("/transactions/summary");
-          if (!response.ok) throw new Error("Erro ao carregar resumo");
-          
-          const balance = await response.json();
-          
-          document.getElementById("total-entradas").textContent = `${currentCurrency}${balance.entradas.toFixed(2)}`;
-          document.getElementById("total-saidas").textContent = `- ${currentCurrency}${balance.saidas.toFixed(2)}`;
-
-          const balanceElement = document.getElementById("saldo");
-          balanceElement.classList.toggle("negative", balance.saldo < 0);
-
-          const formattedBalance = balance.saldo < 0 
-            ? `- ${currentCurrency}${Math.abs(balance.saldo).toFixed(2)}`
-            : `${currentCurrency}${balance.saldo.toFixed(2)}`;
-
-          document.getElementById("saldo").textContent = formattedBalance;
-
-
-        } catch (error) {
-          console.error("Erro ao atualizar totais:", error);
-        }
-        
-
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        attCurrentMonth();
-        attTotals();
-      });
-
-      // Carrega as transações ao abrir a página
-      loadTransactions();
-    </script>
 </body>
 </html>

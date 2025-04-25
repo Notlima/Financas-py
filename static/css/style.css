@@ -126,3 +126,7 @@ button {
   border-radius: 4px;
   z-index: 1000;
 }
+
+.feedback-message.error {
+  background: #f44336;
+}
